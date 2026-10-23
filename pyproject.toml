@@ -1,0 +1,23 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["backend/migrations/versions", "frontend", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C4"]
+ignore = ["S101", "E501", "B008", "S105", "S106", "S311"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/app/tests/*" = ["S105", "S106", "S107", "S311"]
+"tests/*" = ["S105", "S106", "S107", "S311"]
+"backend/scripts/*" = ["S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+ignore_missing_imports = true
+plugins = []
+exclude = ["backend/migrations", "backend/app/tests", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

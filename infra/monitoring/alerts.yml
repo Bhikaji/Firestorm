@@ -1,0 +1,38 @@
+groups:
+  - name: firestorm-platform
+    rules:
+      - alert: FirestormApiDown
+        expr: up{job="firestorm-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "FIRESTORM API is not responding"
+          description: "The API has been unreachable for 2 minutes. Dashboards and response actions are unavailable."
+
+      - alert: FirestormTelemetryStalled
+        expr: increase(firestorm_events_total[15m]) == 0
+        for: 20m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No telemetry ingested in 20 minutes"
+          description: "Sensors may be offline or the ingestion key may be invalid. Detection coverage is reduced."
+
+      - alert: FirestormAlertBacklog
+        expr: firestorm_alerts_open > 50
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Open alert backlog is high"
+          description: "More than 50 open alerts for 30 minutes. Triage capacity may be insufficient."
+
+      - alert: FirestormCriticalAlerts
+        expr: firestorm_alerts_total{severity="critical"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Unresolved critical alerts"
+          description: "Critical alerts are present. Confirm an incident owner and escalation."

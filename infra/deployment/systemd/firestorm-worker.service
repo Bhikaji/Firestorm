@@ -1,0 +1,17 @@
+[Unit]
+Description=FIRESTORM maintenance worker (retention, notifications, indicators)
+After=network-online.target firestorm-api.service
+Requires=firestorm-api.service
+
+[Service]
+Type=oneshot
+User=firestorm
+Group=firestorm
+WorkingDirectory=/opt/firestorm/backend
+EnvironmentFile=/opt/firestorm/.env
+ExecStart=/opt/firestorm/.venv/bin/python -m app.workers.tasks all
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/firestorm/data /opt/firestorm/evidence
