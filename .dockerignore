@@ -1,0 +1,16 @@
+.git
+.github
+**/.venv
+**/node_modules
+**/dist
+**/__pycache__
+**/*.pyc
+data
+evidence
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+docs

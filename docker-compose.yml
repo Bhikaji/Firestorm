@@ -1,0 +1,145 @@
+# FIRESTORM development and lab stack.
+#
+#   cp .env.example .env      # fill in secrets
+#   docker compose up --build
+#   docker compose exec api python scripts/bootstrap.py
+#
+# The console is served on http://localhost:8080 and must NOT be exposed to the
+# public internet without an additional access-control layer.
+name: firestorm
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: firestorm
+      POSTGRES_USER: firestorm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U firestorm -d firestorm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [firestorm-control]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [firestorm-control]
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      FIRESTORM_DATABASE_URL: postgresql+psycopg://firestorm:${POSTGRES_PASSWORD}@db:5432/firestorm
+      FIRESTORM_REDIS_URL: redis://redis:6379/0
+      FIRESTORM_CELERY_BROKER_URL: redis://redis:6379/1
+      FIRESTORM_CELERY_RESULT_BACKEND: redis://redis:6379/2
+      FIRESTORM_FORCE_HTTPS: "false"
+      FIRESTORM_ALLOWED_HOSTS: "localhost,127.0.0.1,api"
+      FIRESTORM_EVIDENCE_DIR: /app/evidence
+    volumes:
+      - evidence:/app/evidence
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/v1/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    networks: [firestorm-control]
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [firestorm-control]
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    restart: unless-stopped
+    command: ["sh", "-c", "celery -A app.workers.celery_app worker --beat --loglevel=INFO --concurrency=1"]
+    env_file: [.env]
+    environment:
+      FIRESTORM_DATABASE_URL: postgresql+psycopg://firestorm:${POSTGRES_PASSWORD}@db:5432/firestorm
+      FIRESTORM_REDIS_URL: redis://redis:6379/0
+      FIRESTORM_CELERY_BROKER_URL: redis://redis:6379/1
+      FIRESTORM_CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [firestorm-control]
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./infra/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [firestorm-control]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/firestorm-platform.json:/var/lib/grafana/dashboards/firestorm-platform.json:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on: [prometheus]
+    networks: [firestorm-control]
+
+  otel:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./infra/monitoring/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+    networks: [firestorm-control]
+
+volumes:
+  db-data:
+  redis-data:
+  evidence:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  firestorm-control:
+    driver: bridge

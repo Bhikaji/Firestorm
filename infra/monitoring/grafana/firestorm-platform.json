@@ -1,0 +1,39 @@
+{
+  "title": "FIRESTORM platform health",
+  "uid": "firestorm-platform",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "API up",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{ "expr": "firestorm_up", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Events ingested (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{ "expr": "firestorm_events_24h", "refId": "A" }]
+    },
+    {
+      "type": "stat",
+      "title": "Open alerts",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{ "expr": "firestorm_alerts_open", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Alert volume by severity",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [{ "expr": "firestorm_alerts_total", "legendFormat": "{{severity}}", "refId": "A" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingest by source",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [{ "expr": "rate(firestorm_events_total[5m])", "legendFormat": "{{source}}", "refId": "A" }]
+    }
+  ]
+}

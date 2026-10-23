@@ -1,0 +1,35 @@
+# OpenTelemetry collector sidecar configuration.
+# Traces are optional: FIRESTORM emits structured JSON logs by default and
+# exposes Prometheus metrics. Enable this when you have a tracing backend.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+
+exporters:
+  logging:
+    verbosity: normal
+  # otlphttp:
+  #   endpoint: https://traces.example.com:4318
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [logging]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [logging]

@@ -1,0 +1,32 @@
+[Unit]
+Description=FIRESTORM API
+Documentation=file:///opt/firestorm/docs/operations-runbook.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+RequiresMountsFor=/opt/firestorm
+
+[Service]
+Type=exec
+User=firestorm
+Group=firestorm
+WorkingDirectory=/opt/firestorm/backend
+EnvironmentFile=/opt/firestorm/.env
+ExecStart=/opt/firestorm/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+# Hardening (adjust paths to your deployment)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/firestorm/data /opt/firestorm/evidence
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LockPersonality=true
+MemoryDenyWriteExecute=true
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target
